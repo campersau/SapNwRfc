@@ -1,0 +1,35 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  ci:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set Version
+        run: |
+            $csprojectfile = "src/SapNwRfc/SapNwRfc.csproj"
+            [xml]$csproject = Get-Content $csprojectfile
+            $newversion = $csproject.Project.PropertyGroup[0].Version + "." + $env:GITHUB_RUN_NUMBER
+            $csproject.Project.PropertyGroup[0].Version = $newversion
+            $csproject.Save($csprojectfile)
+            Write-Host "Set Version to: $($newversion)"
+
+      - name: Build
+        run: dotnet build -c release -p:GeneratePackageOnBuild=false SapNwRfc.sln
+
+      - name: Pack
+        run: dotnet pack -c release --no-build --include-symbols SapNwRfc.sln
+
+      - name: Test
+        run: dotnet test -c release --no-build SapNwRfc.sln
+
+      - name: Upload nupkg
+        uses: actions/upload-artifact@v2
+        with:
+          name: nupkg
+          path: src/SapNwRfc/bin/Release/*.nupkg
+          retention-days: 7
